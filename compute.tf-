@@ -1,0 +1,177 @@
+# data source for my vSphere Data Center
+data "vsphere_datacenter" "dc" {
+  name = var.vsphere["dc"]
+}
+data "vsphere_datastore" "datastore" {
+  name          = var.vsphere["datastore"]
+  datacenter_id = data.vsphere_datacenter.dc.id
+}
+
+data "vsphere_compute_cluster" "cluster" {
+  name          = var.vsphere["cluster"]
+  datacenter_id = data.vsphere_datacenter.dc.id
+}
+
+data "vsphere_virtual_machine" "template" {
+  name          = var.vsphere["vm_template"]
+  datacenter_id = data.vsphere_datacenter.dc.id
+}
+
+# Data source for the Segments we created earlier
+# we need that as we cannot refer directly to the Segement from the vm resource below
+data "vsphere_network" "terraform_web" {
+  name          = data.nsxt_policy_segment_realization.web_rat.network_name
+  datacenter_id = data.vsphere_datacenter.dc.id
+  depends_on    = [nsxt_policy_segment.web]
+}
+data "vsphere_network" "terraform_app" {
+  name          = data.nsxt_policy_segment_realization.app_rat.network_name
+  datacenter_id = data.vsphere_datacenter.dc.id
+  depends_on    = [nsxt_policy_segment.app]
+}
+data "vsphere_network" "terraform_db" {
+  name          = data.nsxt_policy_segment_realization.db_rat.network_name
+  datacenter_id = data.vsphere_datacenter.dc.id
+  depends_on    = [nsxt_policy_segment.db]
+}
+
+resource "random_id" "random_num" {
+  byte_length = 3
+}
+
+# Organize VM - Create a Folder and Resource Pool
+resource "vsphere_folder" "unique_folder" {
+  path          = "brant-tf-demo${lower(random_id.random_num.hex)}"
+  type          = "vm"
+  datacenter_id = data.vsphere_datacenter.dc.id
+}
+resource "vsphere_resource_pool" "unique_resource_pool" {
+  name                    = "brant-tf-demo${lower(random_id.random_num.hex)}"
+  parent_resource_pool_id = data.vsphere_compute_cluster.cluster.resource_pool_id
+}
+
+# Clone the Web VM from the template above and attach it to the newly created Segment
+resource "vsphere_virtual_machine" "webvm" {
+  name       = "${var.web["vm_name"]}-tf-demo${lower(random_id.random_num.hex)}"
+  depends_on = [nsxt_policy_segment.web]
+  # resource_pool_id = data.vsphere_compute_cluster.cluster.resource_pool_id
+  resource_pool_id = vsphere_resource_pool.unique_resource_pool.id
+  folder           = vsphere_folder.unique_folder.path
+  datastore_id     = data.vsphere_datastore.datastore.id
+  num_cpus         = 1
+  memory           = 1024
+  guest_id         = data.vsphere_virtual_machine.template.guest_id
+  scsi_type        = data.vsphere_virtual_machine.template.scsi_type
+  # Attach the VM to the network data source that refers to the newly created Segment
+  network_interface {
+    network_id   = data.vsphere_network.terraform_web.id
+    adapter_type = data.vsphere_virtual_machine.template.network_interface_types[0]
+  }
+  disk {
+    label            = "${var.web["vm_name"]}.vmdk"
+    size             = 16
+    thin_provisioned = true
+  }
+  clone {
+    template_uuid = data.vsphere_virtual_machine.template.id
+
+    # Guest customization to supply hostname and ip addresses to the guest
+    customize {
+      linux_options {
+        host_name = var.web["vm_name"]
+        domain    = var.web["domain"]
+      }
+      network_interface {
+        ipv4_address    = var.web["ip"]
+        ipv4_netmask    = var.web["mask"]
+        dns_server_list = var.dns_server_list
+        dns_domain      = var.web["domain"]
+      }
+      ipv4_gateway = var.web["gw"]
+    }
+  }
+}
+
+# Clone the App VM from the template above and attach it to the newly created Segment
+resource "vsphere_virtual_machine" "appvm" {
+  name       = "${var.app["vm_name"]}-tf-demo${lower(random_id.random_num.hex)}"
+  depends_on = [nsxt_policy_segment.web]
+  #resource_pool_id = data.vsphere_compute_cluster.cluster.resource_pool_id
+  resource_pool_id = vsphere_resource_pool.unique_resource_pool.id
+  folder           = vsphere_folder.unique_folder.path
+  datastore_id     = data.vsphere_datastore.datastore.id
+  num_cpus         = 1
+  memory           = 1024
+  guest_id         = data.vsphere_virtual_machine.template.guest_id
+  scsi_type        = data.vsphere_virtual_machine.template.scsi_type
+  # Attach the VM to the network data source that refers to the newly created Segment
+  network_interface {
+    network_id   = data.vsphere_network.terraform_app.id
+    adapter_type = data.vsphere_virtual_machine.template.network_interface_types[0]
+  }
+  disk {
+    label            = "${var.app["vm_name"]}.vmdk"
+    size             = 16
+    thin_provisioned = true
+  }
+  clone {
+    template_uuid = data.vsphere_virtual_machine.template.id
+
+    # Guest customization to supply hostname and ip addresses to the guest
+    customize {
+      linux_options {
+        host_name = var.app["vm_name"]
+        domain    = var.app["domain"]
+      }
+      network_interface {
+        ipv4_address    = var.app["ip"]
+        ipv4_netmask    = var.app["mask"]
+        dns_server_list = var.dns_server_list
+        dns_domain      = var.app["domain"]
+      }
+      ipv4_gateway = var.app["gw"]
+    }
+  }
+}
+
+# Clone the DB VM from the template above and attach it to the newly created Segment
+resource "vsphere_virtual_machine" "dbvm" {
+  name       = "${var.db["vm_name"]}-tf-demo${lower(random_id.random_num.hex)}"
+  depends_on = [nsxt_policy_segment.db]
+  #resource_pool_id = data.vsphere_compute_cluster.cluster.resource_pool_id
+  resource_pool_id = vsphere_resource_pool.unique_resource_pool.id
+  folder           = vsphere_folder.unique_folder.path
+  datastore_id     = data.vsphere_datastore.datastore.id
+  num_cpus         = 1
+  memory           = 1024
+  guest_id         = data.vsphere_virtual_machine.template.guest_id
+  scsi_type        = data.vsphere_virtual_machine.template.scsi_type
+  # Attach the VM to the network data source that refers to the newly created Segment
+  network_interface {
+    network_id   = data.vsphere_network.terraform_db.id
+    adapter_type = data.vsphere_virtual_machine.template.network_interface_types[0]
+  }
+  disk {
+    label            = "${var.db["vm_name"]}.vmdk"
+    size             = 16
+    thin_provisioned = true
+  }
+  clone {
+    template_uuid = data.vsphere_virtual_machine.template.id
+
+    # Guest customization to supply hostname and ip addresses to the guest
+    customize {
+      linux_options {
+        host_name = var.db["vm_name"]
+        domain    = var.db["domain"]
+      }
+      network_interface {
+        ipv4_address    = var.db["ip"]
+        ipv4_netmask    = var.db["mask"]
+        dns_server_list = var.dns_server_list
+        dns_domain      = var.db["domain"]
+      }
+      ipv4_gateway = var.db["gw"]
+    }
+  }
+}

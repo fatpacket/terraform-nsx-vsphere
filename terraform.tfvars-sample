@@ -1,0 +1,70 @@
+nsx = {
+  ip       = "10.20.30.31"
+  user     = "admin"
+  password = "**password**"
+}
+nsx_data_vars = {
+  transport_zone = "OVERLAY-ZONE"
+  t0_router_name = "LR-T0"
+  edge_cluster   = "edge01-cluster01"
+  t1_router_name = "demo-3TA-router1"
+}
+nsx_rs_vars = {
+  t1_router_name = "demo-3TA-router1"
+}
+
+# ipset = ["10.19.12.201", "10.29.12.219", "10.29.12.220"]
+
+nsx_tag_scope = "project-3TA-demo"
+nsx_tag       = "terraform-3TA-demo"
+
+vsphere = {
+  vsphere_user     = "***some user name***"
+  vsphere_password = "**password**"
+  vsphere_ip       = "10.20.30.41"
+  dc               = "Datacenter"
+  datastore        = "vsanDatastore"
+  cluster          = "Cluster"
+  vm_template      = "ubuntu1804-tmpl"
+}
+
+app_listen_port = "8443"
+
+db_user = "medicalappuser" # Database details 
+db_name = "medicalapp"
+db_pass = "**password**"
+
+dns_server_list = ["10.10.1.55", "10.10.2.55"]
+
+web = {
+  ip      = "10.0.51.11"
+  gw      = "10.0.51.1"
+  mask    = "24"
+  nat_ip  = "" # If the ip above is routable and has internet access you can leave the NAT IP blank
+  vm_name = "web"
+  domain  = "sample-domain.local"
+  user    = "root" # Credentails to access the VM
+  pass    = "**password**"
+}
+
+app = {
+  ip      = "10.0.52.21" # If this IP is not routable and has no internet access you need to condigure a NAT IP below
+  gw      = "10.0.52.1"
+  mask    = "24"
+  nat_ip  = ""
+  vm_name = "app"
+  domain  = "sample-domain.local"
+  user    = "root"
+  pass    = "**password**"
+}
+
+db = {
+  ip      = "10.0.53.31"
+  gw      = "10.0.53.1"
+  mask    = "24"
+  nat_ip  = ""
+  vm_name = "db"
+  domain  = "sample-domain.local"
+  user    = "root"
+  pass    = "**password**"
+}
